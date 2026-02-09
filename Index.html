@@ -133,6 +133,26 @@ margin-top:6px;
 
 <script>
 
+// GOOGLE SHEETS CONFIGURATION
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwFSL5rWZNa65pjG_t94ZNfe2oSXrtAYVCBDLrIepn9VvU_lkMDJrt0UZUaqs5rqN-Ypw/exec'; // Replace with your actual URL
+let currentManagerEmail = '';
+let currentRestaurantCode = '';
+
+async function sendToSheets(action, data) {
+  try {
+    const response = await fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify({action: action, ...data})
+    });
+    return await response.json();
+  } catch(e) {
+    console.error('Sheets error:', e);
+    return {status: 'error'};
+  }
+}
+
+
+  
 function show(id){
 document.querySelectorAll(".card").forEach(c=>c.classList.add("hidden"));
 document.getElementById(id).classList.remove("hidden");
@@ -143,42 +163,107 @@ let f=document.getElementById(id);
 f.type=f.type==="password"?"text":"password";
 }
 
-function signup(){
-localStorage.setItem("manager",JSON.stringify({
-email:mEmail.value,
-pass:mPass.value
-}));
-alert("Signup success. Please login.");
-show("managerLogin");
+async function signup(){
+  const email = mEmail.value;
+  const pass = mPass.value;
+  
+  // Save to Google Sheets
+  await sendToSheets('saveManager', {email: email, pass: pass});
+  
+  // Also save to localStorage as backup
+  localStorage.setItem("manager",JSON.stringify({email: email, pass: pass}));
+  
+  alert("Signup success. Please login.");
+  show("managerLogin");
 }
 
-function login(){
-let m=JSON.parse(localStorage.getItem("manager"));
-if(lEmail.value===m.email && lPass.value===m.pass){
-show("managerDash");
-}else alert("Wrong login");
+async function login(){
+  const email = lEmail.value;
+  const pass = lPass.value;
+  
+  // Try to get from Google Sheets first
+  const result = await sendToSheets('getManager', {email: email});
+  
+  if(result.status === 'found' && result.pass === pass) {
+    currentManagerEmail = email;
+    
+    // Load restaurant data
+    const restData = await sendToSheets('getRestaurant', {email: email});
+    if(restData.status === 'found') {
+      restName.value = restData.name;
+      tables.value = restData.tables;
+      currentRestaurantCode = restData.code;
+      
+      // Load menu
+      await loadMenu();
+    }
+    
+    show("managerDash");
+  } else {
+    alert("Wrong login");
+  }
 }
 
-function setupRestaurant(){
-let code="R"+Math.floor(Math.random()*9999);
-
-localStorage.setItem("restaurant",JSON.stringify({
-name:restName.value,
-tables:tables.value,
-code:code,
-menu:[]
-}));
-
-alert("Restaurant Code: "+code);
+async function setupRestaurant(){
+  const code = currentRestaurantCode || "R"+Math.floor(Math.random()*9999);
+  currentRestaurantCode = code;
+  
+  // Save to Google Sheets
+  await sendToSheets('saveRestaurant', {
+    name: restName.value,
+    tables: tables.value,
+    code: code,
+    email: currentManagerEmail
+  });
+  
+  // Also save to localStorage as backup
+  localStorage.setItem("restaurant",JSON.stringify({
+    name: restName.value,
+    tables: tables.value,
+    code: code,
+    menu: []
+  }));
+  
+  alert("Restaurant Code: "+code);
 }
 
-function addMenu(){
-let r=JSON.parse(localStorage.getItem("restaurant"));
-r.menu.push({name:itemName.value,price:Number(itemPrice.value)});
-localStorage.setItem("restaurant",JSON.stringify(r));
-renderMenu();
+async function addMenu(){
+  const itemName = document.getElementById('itemName').value;
+  const itemPrice = Number(document.getElementById('itemPrice').value);
+  
+  // Save to Google Sheets
+  await sendToSheets('saveMenu', {
+    code: currentRestaurantCode,
+    itemName: itemName,
+    itemPrice: itemPrice
+  });
+  
+  // Also update localStorage
+  let r = JSON.parse(localStorage.getItem("restaurant")) || {menu: []};
+  r.menu.push({name: itemName, price: itemPrice});
+  localStorage.setItem("restaurant", JSON.stringify(r));
+  
+  await loadMenu();
+  
+  // Clear inputs
+  document.getElementById('itemName').value = '';
+  document.getElementById('itemPrice').value = '';
 }
 
+async function loadMenu(){
+  const result = await sendToSheets('getMenu', {code: currentRestaurantCode});
+  
+  if(result.status === 'success') {
+    // Update localStorage
+    let r = JSON.parse(localStorage.getItem("restaurant")) || {};
+    r.menu = result.menu;
+    localStorage.setItem("restaurant", JSON.stringify(r));
+    
+    // Render menu
+    renderMenu();
+  }
+}
+  
 function renderMenu(){
 let r=JSON.parse(localStorage.getItem("restaurant"));
 menuList.innerHTML="";
@@ -189,25 +274,54 @@ menuList.innerHTML+=`
 });
 }
 
-function deleteMenu(i){
-let r=JSON.parse(localStorage.getItem("restaurant"));
-r.menu.splice(i,1);
-localStorage.setItem("restaurant",JSON.stringify(r));
-renderMenu();
+async function deleteMenu(i){
+  let r = JSON.parse(localStorage.getItem("restaurant"));
+  const itemName = r.menu[i].name;
+  
+  // Delete from Google Sheets
+  await sendToSheets('deleteMenu', {
+    code: currentRestaurantCode,
+    itemName: itemName
+  });
+  
+  // Delete from localStorage
+  r.menu.splice(i,1);
+  localStorage.setItem("restaurant",JSON.stringify(r));
+  
+  renderMenu();
 }
-
-function waiterEnter(){
-let r=JSON.parse(localStorage.getItem("restaurant"));
-if(codeInput.value!==r.code) return alert("Wrong Code");
-
-show("tablesScreen");
-tableButtons.innerHTML="";
-for(let i=1;i<=r.tables;i++){
-tableButtons.innerHTML+=`
-<button class="btn white" onclick="openTable(${i})">
-Table ${i}
-</button>`;
-}
+  
+async function waiterEnter(){
+  const code = codeInput.value;
+  
+  // Check Google Sheets
+  const result = await sendToSheets('getRestaurant', {code: code});
+  
+  if(result.status !== 'found') {
+    return alert("Wrong Code");
+  }
+  
+  currentRestaurantCode = code;
+  
+  // Load restaurant data
+  localStorage.setItem("restaurant", JSON.stringify({
+    name: result.name,
+    tables: result.tables,
+    code: code,
+    menu: []
+  }));
+  
+  // Load menu
+  await loadMenu();
+  
+  show("tablesScreen");
+  tableButtons.innerHTML="";
+  for(let i=1; i<=result.tables; i++){
+    tableButtons.innerHTML+=`
+    <button class="btn white" onclick="openTable(${i})">
+      Table ${i}
+    </button>`;
+  }
 }
 
 let currentTable;
@@ -304,26 +418,38 @@ let obj=splitData.find(x=>x.name===person);
 obj.total+=p;
 }
 
-function finalBill(){
-show("billScreen");
+async function finalBill(){
+  show("billScreen");
 
-let html="Table "+currentTable+"<hr>";
-let total=0;
+  let html="Table "+currentTable+"<hr>";
+  let total=0;
 
-order.forEach(o=>{
-html+=o.item+" ₹"+o.price+"<br>";
-total+=o.price;
-});
+  order.forEach(o=>{
+    html+=o.item+" ₹"+o.price+"<br>";
+    total+=o.price;
+  });
 
-html+="<hr>Total ₹"+total;
+  html+="<hr>Total ₹"+total;
 
-if(splitData.length){
-html+="<hr>";
-splitData.forEach(s=>{
-html+=s.name+" owes ₹"+s.total+"<br>";
-});
+  if(splitData.length){
+    html+="<hr>";
+    splitData.forEach(s=>{
+      html+=s.name+" owes ₹"+s.total+"<br>";
+    });
+  }
+
+  billOutput.innerHTML=html;
+  
+  // Save order to Google Sheets
+  await sendToSheets('saveOrder', {
+    code: currentRestaurantCode,
+    table: currentTable,
+    groupType: groupType.value,
+    order: order,
+    total: total,
+    splitData: splitData
+  });
 }
-
 billOutput.innerHTML=html;
 }
 
