@@ -1,0 +1,337 @@
+DOCTYPE html>
+<html>
+<head>
+<title>Elora</title>
+
+<style>
+body{
+font-family:Arial;
+background:linear-gradient(135deg,#5f3dc4,#7c5cff);
+margin:0;
+}
+
+.card{
+background:white;
+width:420px;
+margin:40px auto;
+padding:25px;
+border-radius:12px;
+}
+
+.btn{
+width:100%;
+padding:12px;
+margin-top:8px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+}
+
+.primary{background:#ff6b6b;color:white;}
+.white{background:#eee;}
+.back{background:#444;color:white;}
+
+input,select{
+width:100%;
+padding:10px;
+margin-top:6px;
+}
+
+.hidden{display:none;}
+</style>
+</head>
+
+<body>
+
+<!-- WELCOME -->
+<div id="welcome" class="card">
+<h2>Welcome to Elora</h2>
+<button class="btn primary" onclick="show('managerLogin')">Manager</button>
+<button class="btn white" onclick="show('waiterLogin')">Waiter</button>
+</div>
+
+<!-- MANAGER SIGNUP -->
+<div id="managerSignup" class="card hidden">
+<h3>Signup</h3>
+<input id="mEmail" placeholder="Email">
+<input id="mPass" type="password" placeholder="Password">
+<label><input type="checkbox" onclick="togglePass('mPass')"> Show</label>
+<button class="btn primary" onclick="signup()">Sign Up</button>
+<button class="btn back" onclick="show('managerLogin')">Back</button>
+</div>
+
+<!-- MANAGER LOGIN -->
+<div id="managerLogin" class="card hidden">
+<h3>Login</h3>
+<input id="lEmail" placeholder="Email">
+<input id="lPass" type="password" placeholder="Password">
+<label><input type="checkbox" onclick="togglePass('lPass')"> Show</label>
+<button class="btn primary" onclick="login()">Login</button>
+<button class="btn white" onclick="show('managerSignup')">Signup</button>
+<button class="btn back" onclick="show('welcome')">Back</button>
+</div>
+
+<!-- MANAGER DASH -->
+<div id="managerDash" class="card hidden">
+<h3>Restaurant Setup</h3>
+
+<input id="restName" placeholder="Restaurant Name">
+<input id="tables" type="number" placeholder="Tables">
+
+<button class="btn primary" onclick="setupRestaurant()">Save Restaurant</button>
+
+<h4>Menu</h4>
+<input id="itemName" placeholder="Item Name">
+<input id="itemPrice" placeholder="Price">
+<button class="btn white" onclick="addMenu()">Add</button>
+
+<div id="menuList"></div>
+
+<button class="btn back" onclick="show('welcome')">Back</button>
+</div>
+
+<!-- WAITER LOGIN -->
+<div id="waiterLogin" class="card hidden">
+<h3>Waiter Access</h3>
+<input id="codeInput" placeholder="Restaurant Code">
+<button class="btn primary" onclick="waiterEnter()">Enter</button>
+<button class="btn back" onclick="show('welcome')">Back</button>
+</div>
+
+<!-- TABLES -->
+<div id="tablesScreen" class="card hidden">
+<h3>Select Table</h3>
+<div id="tableButtons"></div>
+<button class="btn back" onclick="show('waiterLogin')">Back</button>
+</div>
+
+<!-- ORDER -->
+<div id="orderScreen" class="card hidden">
+<h3>Order</h3>
+
+<select id="groupType">
+<option>Family</option>
+<option>Friends</option>
+<option>Other</option>
+</select>
+
+<button class="btn white" onclick="continueBilling()">Continue</button>
+
+<div id="billingArea"></div>
+<div id="menuArea"></div>
+
+<button class="btn back" onclick="show('tablesScreen')">Back</button>
+</div>
+
+<!-- FINAL BILL -->
+<div id="billScreen" class="card hidden">
+<h3>Final Bill</h3>
+<div id="billOutput"></div>
+<button class="btn primary" onclick="printBill()">Export / Print</button>
+<button class="btn back" onclick="show('tablesScreen')">Done</button>
+</div>
+
+<script>
+
+function show(id){
+document.querySelectorAll(".card").forEach(c=>c.classList.add("hidden"));
+document.getElementById(id).classList.remove("hidden");
+}
+
+function togglePass(id){
+let f=document.getElementById(id);
+f.type=f.type==="password"?"text":"password";
+}
+
+function signup(){
+localStorage.setItem("manager",JSON.stringify({
+email:mEmail.value,
+pass:mPass.value
+}));
+alert("Signup success. Please login.");
+show("managerLogin");
+}
+
+function login(){
+let m=JSON.parse(localStorage.getItem("manager"));
+if(lEmail.value===m.email && lPass.value===m.pass){
+show("managerDash");
+}else alert("Wrong login");
+}
+
+function setupRestaurant(){
+let code="R"+Math.floor(Math.random()*9999);
+
+localStorage.setItem("restaurant",JSON.stringify({
+name:restName.value,
+tables:tables.value,
+code:code,
+menu:[]
+}));
+
+alert("Restaurant Code: "+code);
+}
+
+function addMenu(){
+let r=JSON.parse(localStorage.getItem("restaurant"));
+r.menu.push({name:itemName.value,price:Number(itemPrice.value)});
+localStorage.setItem("restaurant",JSON.stringify(r));
+renderMenu();
+}
+
+function renderMenu(){
+let r=JSON.parse(localStorage.getItem("restaurant"));
+menuList.innerHTML="";
+r.menu.forEach((m,i)=>{
+menuList.innerHTML+=`
+<p>${m.name} ₹${m.price}
+<button onclick="deleteMenu(${i})">X</button></p>`;
+});
+}
+
+function deleteMenu(i){
+let r=JSON.parse(localStorage.getItem("restaurant"));
+r.menu.splice(i,1);
+localStorage.setItem("restaurant",JSON.stringify(r));
+renderMenu();
+}
+
+function waiterEnter(){
+let r=JSON.parse(localStorage.getItem("restaurant"));
+if(codeInput.value!==r.code) return alert("Wrong Code");
+
+show("tablesScreen");
+tableButtons.innerHTML="";
+for(let i=1;i<=r.tables;i++){
+tableButtons.innerHTML+=`
+<button class="btn white" onclick="openTable(${i})">
+Table ${i}
+</button>`;
+}
+}
+
+let currentTable;
+let order=[];
+let splitData=[];
+
+function openTable(t){
+currentTable=t;
+order=[];
+splitData=[];
+show("orderScreen");
+}
+
+function continueBilling(){
+billingArea.innerHTML="";
+menuArea.innerHTML="";
+let type=groupType.value;
+
+if(type==="Family"){
+buildSingleMenu();
+}else{
+billingArea.innerHTML=`
+Number of People
+<input id="numPeople" type="number">
+<button class="btn primary" onclick="setupSplit()">Continue</button>
+`;
+}
+}
+
+function setupSplit(){
+let n=numPeople.value;
+billingArea.innerHTML="";
+
+for(let i=0;i<n;i++){
+billingArea.innerHTML+=`
+<input class="personName" placeholder="Person ${i+1}">
+`;
+}
+
+billingArea.innerHTML+=`
+<button class="btn primary" onclick="buildSplitMenu()">Continue</button>
+`;
+}
+
+function buildSingleMenu(){
+let r=JSON.parse(localStorage.getItem("restaurant"));
+menuArea.innerHTML="";
+
+r.menu.forEach(m=>{
+menuArea.innerHTML+=`
+<button class="btn white"
+onclick="addItem('${m.name}',${m.price})">
+${m.name} ₹${m.price}
+</button>`;
+});
+
+menuArea.innerHTML+=`
+<button class="btn primary" onclick="finalBill()">Finish</button>
+`;
+}
+
+function buildSplitMenu(){
+let names=[...document.querySelectorAll(".personName")].map(x=>x.value);
+splitData=names.map(n=>({name:n,total:0}));
+
+let r=JSON.parse(localStorage.getItem("restaurant"));
+menuArea.innerHTML=`
+<select id="personSelect">
+${names.map(n=>`<option>${n}</option>`)}
+</select>
+`;
+
+r.menu.forEach(m=>{
+menuArea.innerHTML+=`
+<button class="btn white"
+onclick="addSplitItem('${m.name}',${m.price})">
+${m.name}
+</button>`;
+});
+
+menuArea.innerHTML+=`
+<button class="btn primary" onclick="finalBill()">Finish</button>
+`;
+}
+
+function addItem(n,p){
+order.push({item:n,price:p});
+}
+
+function addSplitItem(n,p){
+let person=personSelect.value;
+order.push({person,item:n,price:p});
+let obj=splitData.find(x=>x.name===person);
+obj.total+=p;
+}
+
+function finalBill(){
+show("billScreen");
+
+let html="Table "+currentTable+"<hr>";
+let total=0;
+
+order.forEach(o=>{
+html+=o.item+" ₹"+o.price+"<br>";
+total+=o.price;
+});
+
+html+="<hr>Total ₹"+total;
+
+if(splitData.length){
+html+="<hr>";
+splitData.forEach(s=>{
+html+=s.name+" owes ₹"+s.total+"<br>";
+});
+}
+
+billOutput.innerHTML=html;
+}
+
+function printBill(){
+window.print();
+}
+
+</script>
+
+</body>
+</html>
