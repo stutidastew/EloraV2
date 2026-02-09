@@ -1,4 +1,4 @@
-DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
 <title>Elora</title>
@@ -134,7 +134,7 @@ margin-top:6px;
 <script>
 
 // GOOGLE SHEETS CONFIGURATION
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwFSL5rWZNa65pjG_t94ZNfe2oSXrtAYVCBDLrIepn9VvU_lkMDJrt0UZUaqs5rqN-Ypw/exec'; // Replace with your actual URL
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwFSL5rWZNa65pjG_t94ZNfe2oSXrtAYVCBDLrIepn9VvU_lkMDJrt0UZUaqs5rqN-Ypw/exec';
 let currentManagerEmail = '';
 let currentRestaurantCode = '';
 
@@ -151,8 +151,6 @@ async function sendToSheets(action, data) {
   }
 }
 
-
-  
 function show(id){
 document.querySelectorAll(".card").forEach(c=>c.classList.add("hidden"));
 document.getElementById(id).classList.remove("hidden");
@@ -263,9 +261,10 @@ async function loadMenu(){
     renderMenu();
   }
 }
-  
+
 function renderMenu(){
 let r=JSON.parse(localStorage.getItem("restaurant"));
+if(!r || !r.menu) return;
 menuList.innerHTML="";
 r.menu.forEach((m,i)=>{
 menuList.innerHTML+=`
@@ -290,7 +289,7 @@ async function deleteMenu(i){
   
   renderMenu();
 }
-  
+
 async function waiterEnter(){
   const code = codeInput.value;
   
@@ -390,7 +389,7 @@ splitData=names.map(n=>({name:n,total:0}));
 let r=JSON.parse(localStorage.getItem("restaurant"));
 menuArea.innerHTML=`
 <select id="personSelect">
-${names.map(n=>`<option>${n}</option>`)}
+${names.map(n=>`<option>${n}</option>`).join('')}
 </select>
 `;
 
@@ -449,8 +448,6 @@ async function finalBill(){
     total: total,
     splitData: splitData
   });
-}
-billOutput.innerHTML=html;
 }
 
 function printBill(){
