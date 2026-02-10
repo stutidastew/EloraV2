@@ -476,6 +476,7 @@ async function addWaiter(){
   r.waiters.push({name: waiterNameValue});
   localStorage.setItem("restaurant", JSON.stringify(r));
   
+  // Reload waiters to display updated list
   await loadWaiters();
   
   // Clear input
