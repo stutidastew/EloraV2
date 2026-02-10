@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -318,6 +317,8 @@ margin:30px 0;
 <!-- WAITER LOGIN -->
 <div id="waiterLogin" class="card hidden">
 <h3>Waiter Access</h3>
+<label>Waiter Name</label>
+<input id="waiterNameInput" type="text" placeholder="Enter Your Name">
 <label>Restaurant Code</label>
 <input id="codeInput" type="text" placeholder="Enter Restaurant Code">
 <button class="btn primary" onclick="waiterEnter()">Enter</button>
@@ -365,6 +366,7 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwgLsg-OsKJZ6yrmIEJI
 let currentManagerEmail = '';
 let currentManagerName = '';
 let currentRestaurantCode = '';
+let currentWaiterName = '';
 
 async function sendToSheets(action, data) {
   try {
@@ -613,26 +615,35 @@ async function deleteMenu(i){
 }
 
 async function waiterEnter(){
+  const waiterName = document.getElementById('waiterNameInput').value;
   const code = codeInput.value;
   
-  if(!code){
-    alert("Please enter restaurant code");
+  if(!waiterName || !code){
+    alert("Please enter both waiter name and restaurant code");
     return;
   }
   
-  // Check Google Sheets
-  const result = await sendToSheets('getRestaurant', {code: code});
+  // Validate waiter name and restaurant code from Google Sheets
+  const result = await sendToSheets('validateWaiter', {
+    waiterName: waiterName,
+    code: code
+  });
   
-  if(result.status !== 'found') {
-    return alert("Invalid Code");
+  if(result.status !== 'valid') {
+    alert("Invalid waiter name or restaurant code. Please check and try again.");
+    return;
   }
   
+  // If validation successful, store the details
   currentRestaurantCode = code;
+  currentWaiterName = waiterName;
   
   // Load restaurant data
+  const restData = await sendToSheets('getRestaurant', {code: code});
+  
   localStorage.setItem("restaurant", JSON.stringify({
-    name: result.name,
-    tables: result.tables,
+    name: restData.name,
+    tables: restData.tables,
     code: code,
     menu: [],
     waiters: []
@@ -643,7 +654,7 @@ async function waiterEnter(){
   
   show("tablesScreen");
   tableButtons.innerHTML="";
-  for(let i=1; i<=result.tables; i++){
+  for(let i=1; i<=restData.tables; i++){
     tableButtons.innerHTML+=`
     <button class="btn white" onclick="openTable(${i})">
       Table ${i}
@@ -791,7 +802,8 @@ async function finalBill(){
     groupType: groupType.value,
     order: order,
     total: total,
-    splitData: splitData
+    splitData: splitData,
+    waiterName: currentWaiterName
   });
 }
 
