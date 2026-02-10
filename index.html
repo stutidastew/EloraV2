@@ -215,6 +215,12 @@ margin-bottom:8px;
 width:100%;
 margin-bottom:20px;
 }
+
+.section-divider{
+border:none;
+border-top:2px solid #e2e8f0;
+margin:30px 0;
+}
 </style>
 </head>
 
@@ -279,12 +285,16 @@ margin-bottom:20px;
 
 <button class="btn primary" onclick="setupRestaurant()">Save Restaurant</button>
 
+<hr class="section-divider">
+
 <h4>Section 2 : Add/Delete Waiter Name</h4>
 <label>Waiter Name</label>
 <input id="waiterName" type="text" placeholder="Waiter Name">
 <button class="btn primary" onclick="addWaiter()">Add Waiter</button>
 
 <div id="waiterList"></div>
+
+<hr class="section-divider">
 
 <h4>Section 3 : Add/Delete Menu Items</h4>
 <label>Item Name</label>
