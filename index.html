@@ -913,6 +913,13 @@ renderSplitOrderInterface();
 function renderSplitOrderInterface() {
   let r = JSON.parse(localStorage.getItem("restaurant"));
   
+  // PRESERVE the currently selected person before re-rendering
+  let currentSelectedPerson = null;
+  const existingSelect = document.getElementById('personSelect');
+  if(existingSelect) {
+    currentSelectedPerson = existingSelect.value;
+  }
+  
   // Create summary box
   let summaryHTML = `
     <div class="summary-box">
@@ -943,8 +950,16 @@ function renderSplitOrderInterface() {
   // Person selector and menu
   summaryHTML += `
     <label>Select Person</label>
-    <select id="personSelect" onchange="renderSplitOrderInterface()">
-      ${splitData.map(p => `<option>${p.name}</option>`).join('')}
+    <select id="personSelect">
+  `;
+  
+  // Build dropdown options and preserve selection
+  splitData.forEach(p => {
+    const selected = (p.name === currentSelectedPerson) ? 'selected' : '';
+    summaryHTML += `<option ${selected}>${p.name}</option>`;
+  });
+  
+  summaryHTML += `
     </select>
     
     <h4>🍽️ Menu Items</h4>
