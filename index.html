@@ -135,7 +135,7 @@ background:#1a202c;
 display:none;
 }
 
-#menuList p{
+#menuList p, #waiterList p{
 padding:12px;
 background:#f7fafc;
 border-radius:8px;
@@ -145,7 +145,7 @@ justify-content:space-between;
 align-items:center;
 }
 
-#menuList button{
+#menuList button, #waiterList button{
 background:#ff6b6b;
 color:white;
 border:none;
@@ -155,7 +155,7 @@ cursor:pointer;
 font-weight:600;
 }
 
-#menuList button:hover{
+#menuList button:hover, #waiterList button:hover{
 background:#ff5252;
 }
 
@@ -279,9 +279,12 @@ margin-bottom:20px;
 
 <button class="btn primary" onclick="setupRestaurant()">Save Restaurant</button>
 
-<h4>Waiter Name</h4>
+<h4>Add/Delete Waiter Name</h4>
 <label>Waiter Name</label>
 <input id="waiterName" type="text" placeholder="Waiter Name">
+<button class="btn white" onclick="addWaiter()">Add Waiter</button>
+
+<div id="waiterList"></div>
 
 <h4>Add/Delete Menu Items</h4>
 <label>Item Name</label>
@@ -341,7 +344,7 @@ margin-bottom:20px;
 <script>
 
 // GOOGLE SHEETS CONFIGURATION
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwFSL5rWZNa65pjG_t94ZNfe2oSXrtAYVCBDLrIepn9VvU_lkMDJrt0UZUaqs5rqN-Ypw/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxOu0M6A8ZctfOuCkZaAXoMZuCcVB67S5ejoYZwhuRPfVcIqxwsQ4iO65pWc7zeFv1ung/exec';
 let currentManagerEmail = '';
 let currentManagerName = '';
 let currentRestaurantCode = '';
@@ -413,8 +416,9 @@ async function login(){
       tables.value = restData.tables;
       currentRestaurantCode = restData.code;
       
-      // Load menu
+      // Load menu and waiters
       await loadMenu();
+      await loadWaiters();
     }
     
     show("managerDash");
@@ -445,10 +449,79 @@ async function setupRestaurant(){
     name: restName.value,
     tables: tables.value,
     code: code,
-    menu: []
+    menu: [],
+    waiters: []
   }));
   
   alert("Restaurant saved! Code: "+code);
+}
+
+async function addWaiter(){
+  const waiterNameValue = document.getElementById('waiterName').value;
+  
+  if(!waiterNameValue){
+    alert("Please enter waiter name");
+    return;
+  }
+  
+  // Save to Google Sheets
+  await sendToSheets('saveWaiter', {
+    code: currentRestaurantCode,
+    waiterName: waiterNameValue
+  });
+  
+  // Also update localStorage
+  let r = JSON.parse(localStorage.getItem("restaurant")) || {waiters: []};
+  if(!r.waiters) r.waiters = [];
+  r.waiters.push({name: waiterNameValue});
+  localStorage.setItem("restaurant", JSON.stringify(r));
+  
+  await loadWaiters();
+  
+  // Clear input
+  document.getElementById('waiterName').value = '';
+}
+
+async function loadWaiters(){
+  const result = await sendToSheets('getWaiters', {code: currentRestaurantCode});
+  
+  if(result.status === 'success') {
+    // Update localStorage
+    let r = JSON.parse(localStorage.getItem("restaurant")) || {};
+    r.waiters = result.waiters;
+    localStorage.setItem("restaurant", JSON.stringify(r));
+    
+    // Render waiters
+    renderWaiters();
+  }
+}
+
+function renderWaiters(){
+  let r = JSON.parse(localStorage.getItem("restaurant"));
+  if(!r || !r.waiters) return;
+  waiterList.innerHTML = "";
+  r.waiters.forEach((w, i) => {
+    waiterList.innerHTML += `
+    <p>${w.name}
+    <button onclick="deleteWaiter(${i})">Delete</button></p>`;
+  });
+}
+
+async function deleteWaiter(i){
+  let r = JSON.parse(localStorage.getItem("restaurant"));
+  const waiterNameValue = r.waiters[i].name;
+  
+  // Delete from Google Sheets
+  await sendToSheets('deleteWaiter', {
+    code: currentRestaurantCode,
+    waiterName: waiterNameValue
+  });
+  
+  // Delete from localStorage
+  r.waiters.splice(i, 1);
+  localStorage.setItem("restaurant", JSON.stringify(r));
+  
+  renderWaiters();
 }
 
 async function addMenu(){
@@ -543,7 +616,8 @@ async function waiterEnter(){
     name: result.name,
     tables: result.tables,
     code: code,
-    menu: []
+    menu: [],
+    waiters: []
   }));
   
   // Load menu
