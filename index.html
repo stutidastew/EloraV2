@@ -221,6 +221,166 @@ border:none;
 border-top:2px solid #e2e8f0;
 margin:30px 0;
 }
+
+/* NEW STYLES FOR IMPROVED ORDER SCREEN */
+.summary-box{
+background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+color:white;
+padding:20px;
+border-radius:12px;
+margin-bottom:25px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+.summary-box h4{
+color:white;
+margin-top:0;
+margin-bottom:15px;
+font-size:18px;
+display:flex;
+align-items:center;
+gap:8px;
+}
+
+.person-summary{
+background:rgba(255,255,255,0.15);
+padding:12px 15px;
+border-radius:8px;
+margin-bottom:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+backdrop-filter:blur(10px);
+}
+
+.person-summary .name{
+font-weight:600;
+font-size:15px;
+}
+
+.person-summary .amount{
+font-size:16px;
+font-weight:700;
+}
+
+.person-summary .item-count{
+font-size:13px;
+opacity:0.9;
+margin-left:8px;
+}
+
+.grand-total{
+background:rgba(255,255,255,0.25);
+padding:15px;
+border-radius:8px;
+margin-top:15px;
+font-size:18px;
+font-weight:700;
+text-align:center;
+backdrop-filter:blur(10px);
+}
+
+.menu-item-btn{
+background:#f7fafc;
+color:#2d3748;
+border:2px solid #e2e8f0;
+padding:14px;
+margin-bottom:10px;
+border-radius:8px;
+cursor:pointer;
+font-size:15px;
+font-weight:600;
+transition:all 0.3s;
+display:flex;
+justify-content:space-between;
+align-items:center;
+width:100%;
+}
+
+.menu-item-btn:hover{
+background:#edf2f7;
+transform:translateY(-2px);
+box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+
+.menu-item-btn .price{
+color:#ff6b6b;
+font-weight:700;
+}
+
+.order-details-box{
+background:#f7fafc;
+padding:20px;
+border-radius:12px;
+margin-top:25px;
+margin-bottom:20px;
+}
+
+.order-details-box h4{
+margin-top:0;
+margin-bottom:15px;
+color:#2d3748;
+}
+
+.person-order-group{
+margin-bottom:20px;
+}
+
+.person-order-group .person-name-header{
+font-weight:700;
+color:#5f3dc4;
+margin-bottom:10px;
+font-size:16px;
+}
+
+.order-item{
+background:white;
+padding:10px 15px;
+border-radius:6px;
+margin-bottom:8px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+border-left:3px solid #7c5cff;
+}
+
+.order-item .item-info{
+flex:1;
+}
+
+.order-item .item-name{
+font-weight:600;
+color:#2d3748;
+}
+
+.order-item .item-price{
+color:#4a5568;
+font-size:14px;
+}
+
+.order-item .remove-btn{
+background:#ff6b6b;
+color:white;
+border:none;
+padding:6px 12px;
+border-radius:6px;
+cursor:pointer;
+font-size:13px;
+font-weight:600;
+transition:all 0.2s;
+}
+
+.order-item .remove-btn:hover{
+background:#ff5252;
+transform:scale(1.05);
+}
+
+.empty-state{
+text-align:center;
+padding:30px;
+color:#a0aec0;
+font-style:italic;
+}
 </style>
 </head>
 
@@ -671,6 +831,9 @@ currentTable=t;
 order=[];
 splitData=[];
 show("orderScreen");
+// Reset the order screen
+billingArea.innerHTML = "";
+menuArea.innerHTML = "";
 }
 
 function continueBilling(){
@@ -736,28 +899,107 @@ if(names.some(n=>!n)){
   return;
 }
 
-splitData=names.map(n=>({name:n,total:0}));
+// Initialize splitData with person names
+splitData=names.map(n=>({name:n,total:0,items:[]}));
 
-let r=JSON.parse(localStorage.getItem("restaurant"));
-menuArea.innerHTML=`
-<label>Select Person</label>
-<select id="personSelect">
-${names.map(n=>`<option>${n}</option>`).join('')}
-</select>
-<h4>Select Items</h4>
-`;
+// Clear previous content
+billingArea.innerHTML = "";
+menuArea.innerHTML = "";
 
-r.menu.forEach(m=>{
-menuArea.innerHTML+=`
-<button class="btn white"
-onclick="addSplitItem('${m.name}',${m.price})">
-${m.name} - ₹${m.price}
-</button>`;
-});
+// Render the improved split order interface
+renderSplitOrderInterface();
+}
 
-menuArea.innerHTML+=`
-<button class="btn primary" onclick="finalBill()">Generate Bill</button>
-`;
+function renderSplitOrderInterface() {
+  let r = JSON.parse(localStorage.getItem("restaurant"));
+  
+  // Create summary box
+  let summaryHTML = `
+    <div class="summary-box">
+      <h4>👥 Order Summary</h4>
+  `;
+  
+  splitData.forEach(person => {
+    const itemCount = person.items ? person.items.length : 0;
+    summaryHTML += `
+      <div class="person-summary">
+        <div>
+          <span class="name">${person.name}</span>
+          <span class="item-count">(${itemCount} items)</span>
+        </div>
+        <span class="amount">₹${person.total}</span>
+      </div>
+    `;
+  });
+  
+  const grandTotal = splitData.reduce((sum, p) => sum + p.total, 0);
+  summaryHTML += `
+      <div class="grand-total">
+        📊 Grand Total: ₹${grandTotal}
+      </div>
+    </div>
+  `;
+  
+  // Person selector and menu
+  summaryHTML += `
+    <label>Select Person</label>
+    <select id="personSelect" onchange="renderSplitOrderInterface()">
+      ${splitData.map(p => `<option>${p.name}</option>`).join('')}
+    </select>
+    
+    <h4>🍽️ Menu Items</h4>
+  `;
+  
+  r.menu.forEach(m => {
+    summaryHTML += `
+      <button class="menu-item-btn" onclick="addSplitItem('${m.name}',${m.price})">
+        <span>${m.name}</span>
+        <span class="price">₹${m.price}</span>
+      </button>
+    `;
+  });
+  
+  // Order details section
+  summaryHTML += `
+    <div class="order-details-box">
+      <h4>📝 Order Details</h4>
+  `;
+  
+  let hasItems = false;
+  splitData.forEach(person => {
+    if(person.items && person.items.length > 0) {
+      hasItems = true;
+      summaryHTML += `
+        <div class="person-order-group">
+          <div class="person-name-header">${person.name}:</div>
+      `;
+      
+      person.items.forEach((item, index) => {
+        summaryHTML += `
+          <div class="order-item">
+            <div class="item-info">
+              <div class="item-name">${item.name}</div>
+              <div class="item-price">₹${item.price}</div>
+            </div>
+            <button class="remove-btn" onclick="removeSplitItem('${person.name}', ${index})">Remove</button>
+          </div>
+        `;
+      });
+      
+      summaryHTML += `</div>`;
+    }
+  });
+  
+  if(!hasItems) {
+    summaryHTML += `<div class="empty-state">No items added yet. Select a person and add items from the menu above.</div>`;
+  }
+  
+  summaryHTML += `
+    </div>
+    <button class="btn primary" onclick="finalBill()">Generate Bill</button>
+  `;
+  
+  menuArea.innerHTML = summaryHTML;
 }
 
 function addItem(n,p){
@@ -765,12 +1007,48 @@ order.push({item:n,price:p});
 alert("Added: "+n);
 }
 
-function addSplitItem(n,p){
-let person=personSelect.value;
-order.push({person,item:n,price:p});
-let obj=splitData.find(x=>x.name===person);
-obj.total+=p;
-alert("Added "+n+" for "+person);
+function addSplitItem(itemName, itemPrice){
+  let personName = document.getElementById('personSelect').value;
+  
+  // Add to order array
+  order.push({person: personName, item: itemName, price: itemPrice});
+  
+  // Update splitData
+  let person = splitData.find(x => x.name === personName);
+  if(!person.items) person.items = [];
+  person.items.push({name: itemName, price: itemPrice});
+  person.total += itemPrice;
+  
+  // Re-render the interface to show updated totals
+  renderSplitOrderInterface();
+}
+
+function removeSplitItem(personName, itemIndex) {
+  // Find the person
+  let person = splitData.find(x => x.name === personName);
+  
+  if(person && person.items && person.items[itemIndex]) {
+    const removedItem = person.items[itemIndex];
+    
+    // Update person's total
+    person.total -= removedItem.price;
+    
+    // Remove from person's items
+    person.items.splice(itemIndex, 1);
+    
+    // Remove from order array
+    const orderIndex = order.findIndex(o => 
+      o.person === personName && 
+      o.item === removedItem.name && 
+      o.price === removedItem.price
+    );
+    if(orderIndex !== -1) {
+      order.splice(orderIndex, 1);
+    }
+    
+    // Re-render the interface
+    renderSplitOrderInterface();
+  }
 }
 
 async function finalBill(){
@@ -779,17 +1057,34 @@ async function finalBill(){
   let html="<strong>Table "+currentTable+"</strong><hr>";
   let total=0;
 
-  order.forEach(o=>{
-    html+=o.item+" - ₹"+o.price+"<br>";
-    total+=o.price;
-  });
+  if(groupType.value === "Family") {
+    // Family billing - simple list
+    order.forEach(o=>{
+      html+=o.item+" - ₹"+o.price+"<br>";
+      total+=o.price;
+    });
+  } else {
+    // Friends/Other billing - show by person
+    splitData.forEach(person => {
+      if(person.items && person.items.length > 0) {
+        html += `<strong>${person.name}:</strong><br>`;
+        person.items.forEach(item => {
+          html += `&nbsp;&nbsp;${item.name} - ₹${item.price}<br>`;
+        });
+        html += `&nbsp;&nbsp;<strong>Subtotal: ₹${person.total}</strong><br><br>`;
+        total += person.total;
+      }
+    });
+  }
 
   html+="<hr><strong>Total: ₹"+total+"</strong>";
 
-  if(splitData.length){
+  if(splitData.length && groupType.value !== "Family"){
     html+="<hr><strong>Split Bills:</strong><br>";
     splitData.forEach(s=>{
-      html+=s.name+" pays ₹"+s.total+"<br>";
+      if(s.total > 0) {
+        html+=s.name+" pays ₹"+s.total+"<br>";
+      }
     });
   }
 
